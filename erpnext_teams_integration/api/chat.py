@@ -17,8 +17,8 @@ def create_group_chat_for_doc(docname, doctype):
     if doctype == 'Event' and getattr(doc, 'event_participants', None):
         for p in doc.event_participants:
             azure = None
-            if p.user:
-                azure = frappe.db.get_value('User', p.user, 'azure_object_id')
+            if p.email:
+                azure = frappe.db.get_value('User', p.email, 'azure_object_id')
             if not azure and p.email:
                 azure = get_azure_user_id_by_email(p.email)
             if azure:
@@ -32,8 +32,8 @@ def create_group_chat_for_doc(docname, doctype):
         chat = res.json(); chat_id = chat.get('id')
         # store mapping on document if field exists
         try:
-            if frappe.db.has_column(doctype, 'teams_chat_id'):
-                frappe.db.set_value(doctype, docname, 'teams_chat_id', chat_id)
+            if frappe.db.has_column(doctype, 'custom_teams_chat_id'):
+                frappe.db.set_value(doctype, docname, 'custom_teams_chat_id', chat_id)
         except Exception:
             pass
         conv = frappe.get_doc({'doctype':'Teams Conversation','chat_id':chat_id,'event': (docname if doctype=='Event' else None),'topic':payload['topic'],'last_synced': now_datetime()})
@@ -53,7 +53,7 @@ def send_message_to_chat(chat_id, message, docname=None, doctype=None):
     res = requests.post(f"{GRAPH_API}/chats/{chat_id}/messages", headers=headers, json=payload)
     if res.status_code in (200,201):
         msg = res.json()
-        _save_message_local(msg, chat_id, docname, doctype, 'outbound')
+        _save_message_local(msg, chat_id, docname, doctype, 'Outbound')
         return msg
     elif res.status_code == 401:
         from .helpers import refresh_access_token

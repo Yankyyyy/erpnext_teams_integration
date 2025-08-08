@@ -1,6 +1,6 @@
 import frappe, requests, urllib.parse
 from datetime import timedelta
-from frappe.utils import now_datetime
+from frappe.utils import now_datetime, get_datetime
 GRAPH_API = "https://graph.microsoft.com/v1.0"
 
 
@@ -13,7 +13,7 @@ def get_settings():
 def get_access_token():
     settings = get_settings()
     token = getattr(settings, "access_token", None)
-    if not token or (getattr(settings, "token_expiry", None) and settings.token_expiry < now_datetime()):
+    if not token or (getattr(settings, "token_expiry", None) and get_datetime(settings.token_expiry) < now_datetime()):
         try:
             token = refresh_access_token()
         except Exception as e:

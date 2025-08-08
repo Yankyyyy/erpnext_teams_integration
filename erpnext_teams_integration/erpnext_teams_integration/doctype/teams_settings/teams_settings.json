@@ -22,7 +22,7 @@
   },
   {
    "fieldname": "client_secret",
-   "fieldtype": "Password",
+   "fieldtype": "Data",
    "label": "Client Secret"
   },
   {
@@ -61,7 +61,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-08 16:01:07.606360",
+ "modified": "2025-08-08 16:55:49.272378",
  "modified_by": "Administrator",
  "module": "Erpnext Teams Integration",
  "name": "Teams Settings",

@@ -25,7 +25,7 @@ frappe.ui.form.on("Event", {
             frm.add_custom_button("Open Teams Chat", () => {
                 frappe.call({
                     method: "erpnext_teams_integration.api.chat.get_local_chat_messages",
-                    args: { chat_id: frm.doc.teams_chat_id },
+                    args: { chat_id: frm.doc.custom_teams_chat_id },
                     callback: function(r) {
                         var messages = r.message || [];
                         window.teamsChatModal = window.teamsChatModal || (function(){ var w=document.createElement('div'); w.id='teams-chat-modal'; w.style='position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;'; var inner=document.createElement('div'); inner.style='background:white;width:80%;max-width:900px;border-radius:8px;padding:16px;max-height:80%;overflow:auto;'; inner.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h4>Teams Chat</h4><button id="teams-close">Close</button></div><div id="teams-chat-contents"></div>'; w.appendChild(inner); document.body.appendChild(w); w.querySelector('#teams-close').addEventListener('click',function(){w.style.display='none'}); return {show:function(){w.style.display='flex'},hide:function(){w.style.display='none'}}; })();
@@ -40,7 +40,7 @@ frappe.ui.form.on("Event", {
                 frappe.prompt([{fieldname:'message', fieldtype:'Small Text', label:'Message', reqd:1}], function(vals) {
                     frappe.call({
                         method: "erpnext_teams_integration.api.chat.send_message_to_chat",
-                        args: { chat_id: frm.doc.teams_chat_id, message: vals.message, docname: frm.doc.name, doctype: frm.doc.doctype },
+                        args: { chat_id: frm.doc.custom_teams_chat_id, message: vals.message, docname: frm.doc.name, doctype: frm.doc.doctype },
                         callback: function() { frappe.msgprint('Message sent'); frm.reload_doc(); }
                     });
                 }, "Send Teams Message", "Send");
@@ -61,3 +61,28 @@ frappe.ui.form.on("Event", {
         }
     }
 });
+
+function createTeamsModal() {
+    let wrapper = document.createElement('div');
+    wrapper.id = 'teams-chat-modal';
+    wrapper.style = 'position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:9999;';
+    let inner = document.createElement('div');
+    inner.style = 'background:white;width:80%;max-width:900px;border-radius:8px;padding:16px;max-height:80%;overflow:auto;';
+    inner.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h4>Teams Chat</h4><button id="teams-close">Close</button></div><div id="teams-chat-contents"></div>';
+    wrapper.appendChild(inner);
+    document.body.appendChild(wrapper);
+    wrapper.querySelector('#teams-close').addEventListener('click', function(){ wrapper.style.display='none'; });
+    return { show: function(){ wrapper.style.display='flex'; }, hide: function(){ wrapper.style.display='none'; } };
+}
+
+function populateTeamsModal(messages) {
+    let container = document.getElementById('teams-chat-contents');
+    if (!container) return;
+    container.innerHTML = '';
+    messages.forEach(function(m) {
+        let el = document.createElement('div');
+        el.style = 'padding:8px;border-bottom:1px solid #eee';
+        el.innerHTML = `<b>${m.sender_display || m.sender_id}</b> <small style="color:#666">${m.created_at || ''}</small><div style="margin-top:6px">${m.body}</div>`;
+        container.appendChild(el);
+    });
+}

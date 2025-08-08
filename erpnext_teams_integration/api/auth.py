@@ -9,6 +9,7 @@ def callback(code=None, state=None):
         frappe.throw("Missing code")
     settings = get_settings()
     token_url = f"https://login.microsoftonline.com/{settings.tenant_id}/oauth2/v2.0/token"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
     data = {
         "client_id": settings.client_id,
         "client_secret": settings.client_secret,
@@ -16,7 +17,7 @@ def callback(code=None, state=None):
         "code": code,
         "redirect_uri": settings.redirect_uri
     }
-    res = requests.post(token_url, data=data)
+    res = requests.post(token_url, headers=headers, data=data)
     if res.status_code != 200:
         frappe.throw(f"Token exchange failed: {res.text}")
     token_data = res.json()
@@ -35,4 +36,4 @@ def callback(code=None, state=None):
             pass
     # redirect back
     frappe.local.response["type"] = "redirect"
-    frappe.local.response["location"] = "/app/event?teams_authentication_status=success"
+    frappe.local.response["location"] = "/app/teams-settings?teams_authentication_status=success"
