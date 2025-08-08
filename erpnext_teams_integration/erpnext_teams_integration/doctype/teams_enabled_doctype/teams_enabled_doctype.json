@@ -1,0 +1,14 @@
+{
+  "doctype": "DocType",
+  "name": "Teams Enabled Doctype",
+  "module": "ERPNext Teams Integration",
+  "istable": 1,
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "doctype_name",
+      "label": "Doctype",
+      "fieldtype": "Data"
+    }
+  ]
+}

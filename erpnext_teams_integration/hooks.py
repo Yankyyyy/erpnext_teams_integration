@@ -44,6 +44,11 @@ app_license = "mit"
 
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+    "*": "public/js/doctype_buttons.js",
+    "Event": "public/js/event_teams_chat.js"
+}
+
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -84,6 +89,8 @@ app_license = "mit"
 
 # before_install = "erpnext_teams_integration.install.before_install"
 # after_install = "erpnext_teams_integration.install.after_install"
+
+after_install = "erpnext_teams_integration.install.after_install"
 
 # Uninstallation
 # ------------

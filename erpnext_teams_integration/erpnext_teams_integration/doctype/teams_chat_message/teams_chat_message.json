@@ -1,0 +1,50 @@
+{
+  "doctype": "DocType",
+  "name": "Teams Chat Message",
+  "module": "ERPNext Teams Integration",
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "chat_id",
+      "label": "Chat ID",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "message_id",
+      "label": "Message ID",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "sender_id",
+      "label": "Sender ID",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "sender_display",
+      "label": "Sender Display",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "body",
+      "label": "Body",
+      "fieldtype": "Text"
+    },
+    {
+      "fieldname": "created_at",
+      "label": "Created At",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "event",
+      "label": "Event",
+      "fieldtype": "Link",
+      "options": "Event"
+    },
+    {
+      "fieldname": "direction",
+      "label": "Direction",
+      "fieldtype": "Select",
+      "options": "inbound\\noutbound"
+    }
+  ]
+}

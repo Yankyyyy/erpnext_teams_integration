@@ -1,0 +1,29 @@
+{
+  "doctype": "DocType",
+  "name": "Teams Conversation",
+  "module": "ERPNext Teams Integration",
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "chat_id",
+      "label": "Chat ID",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "event",
+      "label": "Event",
+      "fieldtype": "Link",
+      "options": "Event"
+    },
+    {
+      "fieldname": "topic",
+      "label": "Topic",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "last_synced",
+      "label": "Last Synced",
+      "fieldtype": "Datetime"
+    }
+  ]
+}

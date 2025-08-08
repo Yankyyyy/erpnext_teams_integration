@@ -1,0 +1,50 @@
+{
+  "doctype": "DocType",
+  "name": "Teams Settings",
+  "module": "ERPNext Teams Integration",
+  "issingle": 1,
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "client_id",
+      "label": "Client ID",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "client_secret",
+      "label": "Client Secret",
+      "fieldtype": "Password"
+    },
+    {
+      "fieldname": "tenant_id",
+      "label": "Tenant ID",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "redirect_uri",
+      "label": "Redirect URI",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "access_token",
+      "label": "Access Token",
+      "fieldtype": "Text"
+    },
+    {
+      "fieldname": "refresh_token",
+      "label": "Refresh Token",
+      "fieldtype": "Text"
+    },
+    {
+      "fieldname": "token_expiry",
+      "label": "Token Expiry",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "enabled_doctypes",
+      "label": "Enabled Doctypes",
+      "fieldtype": "Table",
+      "options": "Teams Enabled Doctype"
+    }
+  ]
+}
