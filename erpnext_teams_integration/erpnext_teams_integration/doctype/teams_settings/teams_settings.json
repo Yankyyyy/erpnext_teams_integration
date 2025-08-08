@@ -4,8 +4,6 @@
  "creation": "2025-08-08 15:30:06.033011",
  "doctype": "DocType",
  "engine": "InnoDB",
- "custom": 1,
-   
  "field_order": [
   "client_id",
   "client_secret",
@@ -16,54 +14,54 @@
   "token_expiry",
   "enabled_doctypes"
  ],
-  "fields": [
-    {
-      "fieldname": "client_id",
-      "label": "Client ID",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "client_secret",
-      "label": "Client Secret",
-      "fieldtype": "Password"
-    },
-    {
-      "fieldname": "tenant_id",
-      "label": "Tenant ID",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "redirect_uri",
-      "label": "Redirect URI",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "access_token",
-      "label": "Access Token",
-      "fieldtype": "Text"
-    },
-    {
-      "fieldname": "refresh_token",
-      "label": "Refresh Token",
-      "fieldtype": "Text"
-    },
-    {
-      "fieldname": "token_expiry",
-      "label": "Token Expiry",
-      "fieldtype": "Datetime"
-    },
-    {
-      "fieldname": "enabled_doctypes",
-      "label": "Enabled Doctypes",
-      "fieldtype": "Table",
-      "options": "Teams Enabled Doctype"
-    }
-  ],
+ "fields": [
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret"
+  },
+  {
+   "fieldname": "tenant_id",
+   "fieldtype": "Data",
+   "label": "Tenant ID"
+  },
+  {
+   "fieldname": "redirect_uri",
+   "fieldtype": "Data",
+   "label": "Redirect URI"
+  },
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Text",
+   "label": "Access Token"
+  },
+  {
+   "fieldname": "refresh_token",
+   "fieldtype": "Text",
+   "label": "Refresh Token"
+  },
+  {
+   "fieldname": "token_expiry",
+   "fieldtype": "Datetime",
+   "label": "Token Expiry"
+  },
+  {
+   "fieldname": "enabled_doctypes",
+   "fieldtype": "Table",
+   "label": "Enabled Doctypes",
+   "options": "Teams Enabled Doctype"
+  }
+ ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-08 15:30:06.033011",
+ "modified": "2025-08-08 16:01:07.606360",
  "modified_by": "Administrator",
  "module": "Erpnext Teams Integration",
  "name": "Teams Settings",

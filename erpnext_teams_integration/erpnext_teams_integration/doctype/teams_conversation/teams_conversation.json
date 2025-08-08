@@ -4,40 +4,39 @@
  "creation": "2025-08-08 15:35:38.389713",
  "doctype": "DocType",
  "engine": "InnoDB",
- "custom": 1,
  "field_order": [
   "chat_id",
   "event",
   "topic",
   "last_synced"
  ],
-    "fields": [
-    {
-        "fieldname": "chat_id",
-        "label": "Chat ID",
-        "fieldtype": "Data"
-    },
-    {
-        "fieldname": "event",
-        "label": "Event",
-        "fieldtype": "Link",
-        "options": "Event"
-    },
-    {
-        "fieldname": "topic",
-        "label": "Topic",
-        "fieldtype": "Data"
-    },
-    {
-        "fieldname": "last_synced",
-        "label": "Last Synced",
-        "fieldtype": "Datetime"
-    }
-    ],
+ "fields": [
+  {
+   "fieldname": "chat_id",
+   "fieldtype": "Data",
+   "label": "Chat ID"
+  },
+  {
+   "fieldname": "event",
+   "fieldtype": "Link",
+   "label": "Event",
+   "options": "Event"
+  },
+  {
+   "fieldname": "topic",
+   "fieldtype": "Data",
+   "label": "Topic"
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced"
+  }
+ ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-08 15:35:38.389713",
+ "modified": "2025-08-08 16:01:14.586326",
  "modified_by": "Administrator",
  "module": "Erpnext Teams Integration",
  "name": "Teams Conversation",

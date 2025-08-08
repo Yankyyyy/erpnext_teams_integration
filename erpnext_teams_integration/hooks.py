@@ -46,7 +46,8 @@ app_license = "mit"
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 doctype_js = {
     "*": "public/js/doctype_buttons.js",
-    "Event": "public/js/event_teams_chat.js"
+    "Event": "public/js/event_teams_chat.js",
+    "Teams Settings": "public/js/teams_settings.js"
 }
 
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}

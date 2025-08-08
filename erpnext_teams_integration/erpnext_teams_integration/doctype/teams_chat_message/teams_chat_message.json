@@ -4,58 +4,73 @@
  "creation": "2025-08-08 15:40:47.777756",
  "doctype": "DocType",
  "engine": "InnoDB",
- "custom": 1,
  "field_order": [
-  "section_break_7mno"
+  "chat_id",
+  "message_id",
+  "sender_id",
+  "sender_display",
+  "body",
+  "created_at",
+  "document_type",
+  "document_name",
+  "direction"
  ],
-  "fields": [
-    {
-      "fieldname": "chat_id",
-      "label": "Chat ID",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "message_id",
-      "label": "Message ID",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "sender_id",
-      "label": "Sender ID",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "sender_display",
-      "label": "Sender Display",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "body",
-      "label": "Body",
-      "fieldtype": "Text"
-    },
-    {
-      "fieldname": "created_at",
-      "label": "Created At",
-      "fieldtype": "Datetime"
-    },
-    {
-      "fieldname": "event",
-      "label": "Event",
-      "fieldtype": "Link",
-      "options": "Event"
-    },
-    {
-      "fieldname": "direction",
-      "label": "Direction",
-      "fieldtype": "Select",
-      "options": "inbound\\noutbound"
-    }
-  ],
+ "fields": [
+  {
+   "fieldname": "chat_id",
+   "fieldtype": "Data",
+   "label": "Chat ID"
+  },
+  {
+   "fieldname": "message_id",
+   "fieldtype": "Data",
+   "label": "Message ID"
+  },
+  {
+   "fieldname": "sender_id",
+   "fieldtype": "Data",
+   "label": "Sender ID"
+  },
+  {
+   "fieldname": "sender_display",
+   "fieldtype": "Data",
+   "label": "Sender Display"
+  },
+  {
+   "fieldname": "body",
+   "fieldtype": "Text",
+   "label": "Body"
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "label": "Created At"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Direction",
+   "options": "\nInbound\nOutbound",
+   "reqd": 1
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Link",
+   "label": "Document Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "document_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Document Name",
+   "options": "document_type"
+  }
+ ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-08 15:40:47.777756",
+ "modified": "2025-08-08 16:00:34.981407",
  "modified_by": "Administrator",
  "module": "Erpnext Teams Integration",
  "name": "Teams Chat Message",
