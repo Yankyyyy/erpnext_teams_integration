@@ -130,6 +130,7 @@ def post_message_to_channel(team_id, channel_id, message, docname=None):
     frappe.log_error(res.text, 'Teams channel post failed')
     frappe.throw(f"Teams API Error: {res.status_code}: {res.text}")
 
+@frappe.whitelist()
 def sync_all_conversations():
     convs = frappe.get_all('Teams Conversation', fields=['name','chat_id','event'])
     for c in convs:

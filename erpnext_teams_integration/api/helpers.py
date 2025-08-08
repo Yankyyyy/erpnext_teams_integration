@@ -3,11 +3,13 @@ from datetime import timedelta
 from frappe.utils import now_datetime
 GRAPH_API = "https://graph.microsoft.com/v1.0"
 
+
 def get_settings():
     s = frappe.get_doc("Teams Settings")
     s.reload()
     return s
 
+@frappe.whitelist()
 def get_access_token():
     settings = get_settings()
     token = getattr(settings, "access_token", None)
@@ -19,6 +21,7 @@ def get_access_token():
             token = None
     return token
 
+@frappe.whitelist()
 def refresh_access_token():
     settings = get_settings()
     data = {
@@ -42,6 +45,7 @@ def refresh_access_token():
     frappe.clear_cache(doctype="Teams Settings")
     return settings.access_token
 
+@frappe.whitelist()
 def get_azure_user_id_by_email(email):
     if not email:
         return None
@@ -76,6 +80,7 @@ def get_azure_user_id_by_email(email):
     frappe.log_error(res.text, f"Unable to fetch Object ID for {email}")
     return None
 
+@frappe.whitelist()
 def get_login_url(docname):
     settings = get_settings()
     scope = 'User.Read OnlineMeetings.ReadWrite offline_access Chat.ReadWrite Chat.Create Chat.ReadBasic User.ReadBasic.All ChannelMessage.Send'
