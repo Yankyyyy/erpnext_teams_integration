@@ -6,7 +6,8 @@
  "engine": "InnoDB",
  "field_order": [
   "chat_id",
-  "event",
+  "document_type",
+  "document_name",
   "topic",
   "last_synced"
  ],
@@ -14,30 +15,41 @@
   {
    "fieldname": "chat_id",
    "fieldtype": "Data",
-   "label": "Chat ID"
-  },
-  {
-   "fieldname": "event",
-   "fieldtype": "Link",
-   "label": "Event",
-   "options": "Event"
+   "label": "Chat ID",
+   "read_only": 1
   },
   {
    "fieldname": "topic",
    "fieldtype": "Data",
-   "label": "Topic"
+   "label": "Topic",
+   "read_only": 1
   },
   {
    "fieldname": "last_synced",
    "fieldtype": "Datetime",
-   "label": "Last Synced"
+   "label": "Last Synced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Link",
+   "label": "Document Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "document_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Document Name",
+   "options": "document_type",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-08 16:01:14.586326",
- "modified_by": "Administrator",
+ "modified": "2025-08-11 14:50:50.028361",
+ "modified_by": "mangshatabams@rapifuzz.com",
  "module": "Erpnext Teams Integration",
  "name": "Teams Conversation",
  "owner": "Administrator",

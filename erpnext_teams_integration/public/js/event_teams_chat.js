@@ -89,8 +89,14 @@ frappe.ui.form.on("Event", {
 
             // New "Sync Now" button inside Teams dropdown
             frm.add_custom_button(__('Sync Now'), () => {
+                let args = {};
+                if (frm.doc.custom_teams_chat_id) {
+                    args.chat_id = frm.doc.custom_teams_chat_id;
+                }
+
                 frappe.call({
                     method: "erpnext_teams_integration.api.chat.sync_all_conversations",
+                    args: args,
                     callback: function(r) {
                         if (!r.exc) {
                             frappe.msgprint(__('Chats synced successfully.'));
