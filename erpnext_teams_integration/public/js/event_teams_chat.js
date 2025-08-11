@@ -1,5 +1,14 @@
 frappe.ui.form.on("Event", {
     refresh(frm) {
+        if (frm.doc.custom_teams_meeting_url) {
+            frm.fields_dict.custom_join_teams_meeting.$wrapper
+                .find("button")
+                .off("click") // Remove existing handler if any
+                .on("click", function () {
+                    window.open(frm.doc.custom_teams_meeting_url, "_blank");
+                });
+        }
+        
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("teams_authentication_status") === "success") {
             frappe.msgprint({
@@ -87,10 +96,32 @@ frappe.ui.form.on("Event", {
                 }, "Post to Channel", "Post");
             }, __("Teams"));
 
+            frm.add_custom_button(__('Create Teams Meeting'), () => {
+                frappe.call({
+                    method: "erpnext_teams_integration.api.meetings.create_meeting",
+                    args: { docname: frm.doc.name, doctype: frm.doc.doctype },
+                    callback: function(r) {
+                        if (typeof r.message === "string") {
+                            frappe.msgprint(r.message);
+                        } else if (r.message && r.message.login_url) {
+                            // Redirect to MS login if required
+                            window.location.href = r.message.login_url;
+                        }
+                        frm.reload_doc();
+                    }
+                });
+            }, __("Teams"));
+
             // New "Sync Now" button inside Teams dropdown
             frm.add_custom_button(__('Sync Now'), () => {
+                let args = {};
+                if (frm.doc.custom_teams_chat_id) {
+                    args.chat_id = frm.doc.custom_teams_chat_id;
+                }
+
                 frappe.call({
                     method: "erpnext_teams_integration.api.chat.sync_all_conversations",
+                    args: args,
                     callback: function(r) {
                         if (!r.exc) {
                             frappe.msgprint(__('Chats synced successfully.'));
