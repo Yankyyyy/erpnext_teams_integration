@@ -17,7 +17,7 @@ def get_access_token():
         try:
             token = refresh_access_token()
         except Exception as e:
-            frappe.log_error(str(e), "Teams Token Refresh")
+            frappe.log_error(str(e), "Teams Token Refresh Failed")
             token = None
     return token
 

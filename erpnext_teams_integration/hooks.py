@@ -45,7 +45,7 @@ app_license = "mit"
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 doctype_js = {
-    "*": "public/js/doctype_buttons.js",
+    "Project": "public/js/project_teams_chat.js",
     "Event": "public/js/event_teams_chat.js",
     "Teams Settings": "public/js/teams_settings.js"
 }

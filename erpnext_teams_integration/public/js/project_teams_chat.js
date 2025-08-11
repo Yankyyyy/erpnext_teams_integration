@@ -1,4 +1,4 @@
-frappe.ui.form.on("Event", {
+frappe.ui.form.on("Project", {
     refresh(frm) {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("teams_authentication_status") === "success") {

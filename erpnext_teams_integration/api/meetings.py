@@ -1,5 +1,5 @@
 import frappe, requests, pytz
-from .helpers import get_settings, get_access_token, get_azure_user_id_by_email, get_login_url
+from .helpers import get_access_token, get_azure_user_id_by_email, get_login_url
 
 def to_utc_isoformat(dt):
     local_tz = pytz.timezone('Asia/Kolkata')
@@ -9,7 +9,6 @@ def to_utc_isoformat(dt):
 
 @frappe.whitelist()
 def create_meeting(docname):
-    settings = get_settings()
     token = get_access_token()
     if not token:
         return get_login_url(docname)
