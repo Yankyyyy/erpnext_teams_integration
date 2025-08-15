@@ -8,6 +8,7 @@
   "client_id",
   "client_secret",
   "tenant_id",
+  "azure_owner_email_id",
   "owner_azure_object_id",
   "redirect_uri",
   "access_token",
@@ -58,16 +59,22 @@
    "options": "Teams Enabled Doctype"
   },
   {
+   "fieldname": "azure_owner_email_id",
+   "fieldtype": "Data",
+   "label": "Azure Owner Email ID"
+  },
+  {
    "fieldname": "owner_azure_object_id",
    "fieldtype": "Data",
-   "label": "Owner Azure Object ID"
+   "label": "Owner Azure Object ID",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-15 13:27:13.994504",
+ "modified": "2025-08-15 14:20:57.051991",
  "modified_by": "Administrator",
  "module": "Erpnext Teams Integration",
  "name": "Teams Settings",
