@@ -4,6 +4,7 @@ from frappe.utils import now_datetime, get_datetime
 from datetime import datetime
 
 GRAPH_API = 'https://graph.microsoft.com/v1.0'
+my_azure = frappe.db.get_single_value('Teams Settings', 'owner_azure_object_id')
 
 # Add all supported doctypes here, along with the participant child table + email field
 SUPPORTED_DOCTYPES = {
@@ -79,9 +80,17 @@ def create_group_chat_for_doc(docname, doctype):
         'roles': ['owner'],
         'user@odata.bind': f"https://graph.microsoft.com/v1.0/users('{azure_id}')"
     } for azure_id in target_azure_ids]
+    
+    if my_azure and my_azure not in target_azure_ids:
+        members.append({
+            '@odata.type': '#microsoft.graph.aadUserConversationMember',
+            'roles': ['owner'],
+            'user@odata.bind': f"https://graph.microsoft.com/v1.0/users('{my_azure}')"
+        })
+        target_azure_ids.add(my_azure)
 
     payload = {
-        'chatType': 'group',  # or 'oneOnOne'
+        'chatType': 'group',  # 'group' or 'oneOnOne'
         # 'topic': f"{doctype} {docname}",
         'members': members
     }
