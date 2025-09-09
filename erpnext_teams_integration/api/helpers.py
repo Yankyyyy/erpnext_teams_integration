@@ -213,35 +213,10 @@ def get_login_url(docname=None):
             frappe.throw("Teams integration is not properly configured. Please check Client ID, Tenant ID, and Redirect URI.")
         
         # Required scopes for the integration
-        scope = ' '.join([
-            'User.Read',
-            'User.ReadBasic.All', 
-            'OnlineMeetings.ReadWrite',
-            'offline_access',
-            'Chat.ReadWrite',
-            'Chat.Create',
-            'Chat.ReadBasic',
-            'ChannelMessage.Send',
-            'Chat.ReadWrite.All'
-        ])
-        
-        # State parameter for tracking the source
-        state = f'from_frappe'
-        if docname:
-            state = f'from_create_button::{docname}'
-        
-        # Construct OAuth URL
-        login_url = (
-            f"https://login.microsoftonline.com/{settings.tenant_id}/oauth2/v2.0/authorize"
-            f"?client_id={settings.client_id}"
-            f"&response_type=code"
-            f"&redirect_uri={urllib.parse.quote(settings.redirect_uri, safe='')}"
-            f"&response_mode=query"
-            f"&scope={urllib.parse.quote(scope)}"
-            f"&state={urllib.parse.quote(state)}"
-            f"&prompt=consent"  # Always show consent screen for clarity
-        )
-        
+        scope = 'User.Read OnlineMeetings.ReadWrite offline_access Chat.ReadWrite Chat.Create Chat.ReadBasic User.ReadBasic.All ChannelMessage.Send'
+        state = f'from_create_button::{docname}'
+        login_url = (f"https://login.microsoftonline.com/{settings.tenant_id}/oauth2/v2.0/authorize"
+                    f"?client_id={settings.client_id}&response_type=code&redirect_uri={urllib.parse.quote(settings.redirect_uri, safe='')}&response_mode=query&scope={urllib.parse.quote(scope)}&state={urllib.parse.quote(state)}")
         return login_url
         
     except Exception as e:

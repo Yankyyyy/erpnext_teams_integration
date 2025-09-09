@@ -101,7 +101,8 @@ def callback(code=None, state=None, error=None, error_description=None):
         if state and state.startswith('from_create_button::'):
             doc_name = state.replace('from_create_button::', '')
             if doc_name:
-                redirect_url = f"/app/event/{doc_name}?teams_authentication_status=success"
+                if doc_name != "Teams Settings":
+                    redirect_url = f"/app/event/{doc_name}?teams_authentication_status=success"
         
         frappe.local.response["type"] = "redirect"
         frappe.local.response["location"] = redirect_url

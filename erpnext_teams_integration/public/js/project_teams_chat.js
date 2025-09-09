@@ -102,8 +102,10 @@ frappe.ui.form.on("Project", {
                     method: "erpnext_teams_integration.api.meetings.create_meeting",
                     args: { docname: frm.doc.name, doctype: frm.doc.doctype },
                     callback: function(r) {
-                        if (typeof r.message === "string") {
-                            frappe.msgprint(r.message);
+                        if (r.message) {
+                            // If it's an object, show the .message field
+                            let msg = (typeof r.message === "string") ? r.message : r.message.message;
+                            frappe.msgprint(msg);
                         } else if (r.message && r.message.login_url) {
                             // Redirect to MS login if required
                             window.location.href = r.message.login_url;

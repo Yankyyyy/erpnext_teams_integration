@@ -9,44 +9,13 @@ frappe.ui.form.on('Teams Settings', {
                     args: { docname: frm.doc.name },
                     callback: function(r) {
                         if (r.message) {
-                            // Open in new window to avoid losing form changes
-                            window.open(r.message, '_blank', 'width=600,height=700');
-                            
-                            // Show message about authentication process
+                            window.location.href = r.message; // redirect to MS login
+
                             frappe.msgprint({
                                 title: __('Authentication Started'),
                                 message: __('Please complete the authentication in the new window. This page will automatically refresh when authentication is complete.'),
                                 indicator: 'blue'
                             });
-                            
-                            // Poll for authentication completion
-                            let pollCount = 0;
-                            const maxPolls = 30; // 5 minutes max
-                            
-                            const pollAuth = setInterval(() => {
-                                pollCount++;
-                                frappe.call({
-                                    method: "erpnext_teams_integration.api.auth.get_authentication_status",
-                                    callback: function(auth_r) {
-                                        if (auth_r.message && auth_r.message.authenticated) {
-                                            clearInterval(pollAuth);
-                                            frm.reload_doc();
-                                            frappe.msgprint({
-                                                title: __('Success'),
-                                                message: __('Teams authentication completed successfully!'),
-                                                indicator: 'green'
-                                            });
-                                        } else if (pollCount >= maxPolls) {
-                                            clearInterval(pollAuth);
-                                            frappe.msgprint({
-                                                title: __('Timeout'),
-                                                message: __('Authentication polling timed out. Please refresh the page to check status.'),
-                                                indicator: 'orange'
-                                            });
-                                        }
-                                    }
-                                });
-                            }, 10000); // Poll every 10 seconds
                         }
                     }
                 });
@@ -298,10 +267,12 @@ frappe.ui.form.on('Teams Settings', {
                     const now = new Date();
                     const hoursUntilExpiry = (expiry - now) / (1000 * 60 * 60);
                     
-                    if (hoursUntilExpiry < 1) {
+                    if (hoursUntilExpiry <= 0) {
+                        // Token already expired
                         frm.dashboard.add_indicator(__('Token Expired'), 'red');
-                    } else if (hoursUntilExpiry < 24) {
-                        frm.dashboard.add_indicator(__('Token Expires Soon'), 'orange');
+                    } else if (hoursUntilExpiry < 1) {
+                        // Token expiring within next hour
+                        frm.dashboard.add_indicator(__('Token Expires Soon'), 'yellow');
                     }
                 }
             } else {

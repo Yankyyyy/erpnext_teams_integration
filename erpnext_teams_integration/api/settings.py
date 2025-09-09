@@ -126,8 +126,8 @@ def bulk_sync_azure_ids():
                 frappe.log_error(f"Failed to update owner info: {str(owner_error)}", "Teams Owner Update Error")
         
         result_message = f'Sync completed: {updated_count} users updated'
-        if created_count > 0:
-            result_message += f', {created_count} users created'
+        # if created_count > 0:
+        #     result_message += f', {created_count} users created'
         if error_count > 0:
             result_message += f', {error_count} errors occurred'
         
@@ -149,23 +149,51 @@ def test_teams_connection():
                 "success": False,
                 "message": "No access token available. Please authenticate first."
             }
-        
-        headers = {'Authorization': f'Bearer {token}'}
-        
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
         # Test basic API access
-        me_response = requests.get('https://graph.microsoft.com/v1.0/me', headers=headers, timeout=30)
-        
+        me_response = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers, timeout=30)
+
         if me_response.status_code == 200:
             user_data = me_response.json()
-            
+
             # Test chats access
-            chats_response = requests.get('https://graph.microsoft.com/v1.0/chats?$top=1', headers=headers, timeout=30)
+            chats_response = requests.get("https://graph.microsoft.com/v1.0/chats?$top=1", headers=headers, timeout=30)
             chats_access = chats_response.status_code in (200, 204)
-            
-            # Test meetings access
-            meetings_response = requests.get('https://graph.microsoft.com/v1.0/me/onlineMeetings?$top=1', headers=headers, timeout=30)
-            meetings_access = meetings_response.status_code in (200, 204)
-            
+
+            # Test meetings access by creating a dummy meeting
+            dummy_meeting = {
+                "startDateTime": "2025-01-01T12:00:00Z",
+                "endDateTime": "2025-01-01T12:30:00Z",
+                "subject": "Permission Test Meeting"
+            }
+
+            meetings_access = False
+            meetings_response = requests.post(
+                "https://graph.microsoft.com/v1.0/me/onlineMeetings",
+                headers=headers,
+                json=dummy_meeting,
+                timeout=30
+            )
+
+            if meetings_response.status_code == 201:
+                meetings_access = True
+                # cleanup to avoid leaving a meeting behind
+                meeting_id = meetings_response.json().get("id")
+                if meeting_id:
+                    try:
+                        requests.delete(
+                            f"https://graph.microsoft.com/v1.0/me/onlineMeetings/{meeting_id}",
+                            headers=headers,
+                            timeout=30
+                        )
+                    except Exception:
+                        pass  # safe ignore cleanup error
+
             return {
                 "success": True,
                 "message": "Connection successful",
@@ -184,7 +212,7 @@ def test_teams_connection():
                 "success": False,
                 "message": f"API connection failed: {me_response.status_code}"
             }
-            
+
     except Exception as e:
         frappe.log_error(f"Teams connection test failed: {str(e)}", "Teams Connection Test Error")
         return {
