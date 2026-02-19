@@ -213,7 +213,7 @@ def get_login_url(docname=None):
             frappe.throw("Teams integration is not properly configured. Please check Client ID, Tenant ID, and Redirect URI.")
         
         # Required scopes for the integration
-        scope = 'User.Read OnlineMeetings.ReadWrite offline_access Chat.ReadWrite Chat.Create Chat.ReadBasic User.ReadBasic.All ChannelMessage.Send'
+        scope = 'User.Read OnlineMeetings.ReadWrite offline_access Chat.ReadWrite Chat.Create Chat.ReadBasic User.ReadBasic.All ChannelMessage.Send Calendars.ReadWrite'
         state = f'from_create_button::{docname}'
         login_url = (f"https://login.microsoftonline.com/{settings.tenant_id}/oauth2/v2.0/authorize"
                     f"?client_id={settings.client_id}&response_type=code&redirect_uri={urllib.parse.quote(settings.redirect_uri, safe='')}&response_mode=query&scope={urllib.parse.quote(scope)}&state={urllib.parse.quote(state)}")

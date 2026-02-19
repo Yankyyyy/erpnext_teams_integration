@@ -36,10 +36,18 @@ frappe.ui.form.on('Teams Settings', {
                                 const user_info = r.message.user_info;
                                 const permissions = r.message.permissions;
                                 
+                                // Build the status message
                                 let message = `Connected as: <b>${user_info.name}</b> (${user_info.email})<br>`;
                                 message += `<br><b>Permissions:</b><br>`;
                                 message += `• Chat Access: ${permissions.chats ? '✅' : '❌'}<br>`;
-                                message += `• Meetings Access: ${permissions.meetings ? '✅' : '❌'}`;
+                                message += `• Meetings Access: ${permissions.meetings ? '✅' : '❌'}<br>`;
+                                
+                                // Display Calendar Access (This is the critical part you were missing)
+                                if (permissions.calendar !== undefined) {
+                                     message += `• Calendar Access: ${permissions.calendar ? '✅' : '❌'}`;
+                                } else {
+                                     message += `• Calendar Access: ❓ (Update api/settings.py)`;
+                                }
                                 
                                 frappe.msgprint({
                                     title: __('Connection Test Successful'),
@@ -197,11 +205,6 @@ frappe.ui.form.on('Teams Settings', {
                     }
                 });
             }, __('More Actions'));
-
-            // // Add advanced options dropdown
-            // frm.add_custom_button(__('Advanced Options'), function() {
-            //     // This will show a dropdown with advanced options
-            // }, __('More Actions'));
 
             // Reset integration (dangerous operation)
             frm.add_custom_button(__('Reset Integration'), function() {

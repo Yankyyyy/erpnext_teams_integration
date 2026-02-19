@@ -1,3 +1,5 @@
+# apps/erpnext_teams_integration/erpnext_teams_integration/api/settings.py
+
 import frappe
 import requests
 from frappe import _
@@ -83,23 +85,6 @@ def bulk_sync_azure_ids():
                         updated_count += 1
                 else:
                     # Optionally create new user (commented out for safety)
-                    # You might want to enable this based on your requirements
-                    """
-                    try:
-                        new_user = frappe.get_doc({
-                            "doctype": "User",
-                            "email": email,
-                            "first_name": display_name.split(' ')[0] if display_name else email.split('@')[0],
-                            "azure_object_id": azure_id,
-                            "send_welcome_email": 0,
-                            "enabled": 0  # Create as disabled by default
-                        })
-                        new_user.insert(ignore_permissions=True)
-                        created_count += 1
-                    except Exception as create_error:
-                        frappe.log_error(f"Failed to create user {email}: {str(create_error)}", "Teams User Creation Error")
-                        error_count += 1
-                    """
                     pass
                     
             except Exception as user_error:
@@ -126,8 +111,6 @@ def bulk_sync_azure_ids():
                 frappe.log_error(f"Failed to update owner info: {str(owner_error)}", "Teams Owner Update Error")
         
         result_message = f'Sync completed: {updated_count} users updated'
-        # if created_count > 0:
-        #     result_message += f', {created_count} users created'
         if error_count > 0:
             result_message += f', {error_count} errors occurred'
         
@@ -141,7 +124,7 @@ def bulk_sync_azure_ids():
 
 @frappe.whitelist()
 def test_teams_connection():
-    """Test connection to Microsoft Teams API"""
+    """Test connection to Microsoft Teams API and verify permissions"""
     try:
         token = get_access_token()
         if not token:
@@ -155,17 +138,23 @@ def test_teams_connection():
             "Content-Type": "application/json"
         }
 
-        # Test basic API access
+        # 1. Test Basic User Profile Access
         me_response = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers, timeout=30)
 
         if me_response.status_code == 200:
             user_data = me_response.json()
 
-            # Test chats access
+            # 2. Test Chat Read/Write Access
             chats_response = requests.get("https://graph.microsoft.com/v1.0/chats?$top=1", headers=headers, timeout=30)
             chats_access = chats_response.status_code in (200, 204)
 
-            # Test meetings access by creating a dummy meeting
+            # 3. Test Calendar Access (Required for Outlook Blocking)
+            # We just try to list events. If we get 200, we have at least Read access.
+            # Since 'Calendars.ReadWrite' covers Read, this is a good proxy check.
+            calendar_response = requests.get("https://graph.microsoft.com/v1.0/me/events?$top=1", headers=headers, timeout=30)
+            calendar_access = calendar_response.status_code == 200
+
+            # 4. Test Meetings Access (OnlineMeetings)
             dummy_meeting = {
                 "startDateTime": "2025-01-01T12:00:00Z",
                 "endDateTime": "2025-01-01T12:30:00Z",
@@ -182,7 +171,7 @@ def test_teams_connection():
 
             if meetings_response.status_code == 201:
                 meetings_access = True
-                # cleanup to avoid leaving a meeting behind
+                # Cleanup dummy meeting
                 meeting_id = meetings_response.json().get("id")
                 if meeting_id:
                     try:
@@ -192,7 +181,7 @@ def test_teams_connection():
                             timeout=30
                         )
                     except Exception:
-                        pass  # safe ignore cleanup error
+                        pass
 
             return {
                 "success": True,
@@ -204,7 +193,8 @@ def test_teams_connection():
                 },
                 "permissions": {
                     "chats": chats_access,
-                    "meetings": meetings_access
+                    "meetings": meetings_access,
+                    "calendar": calendar_access  # Added check
                 }
             }
         else:
@@ -401,9 +391,8 @@ def validate_configuration():
 def reset_integration():
     """Reset Teams integration (clear all tokens and data)"""
     try:
-        # Confirm this is intentional
-        if not frappe.confirm("This will clear all Teams authentication data and conversation history. Are you sure?"):
-            return
+        # NOTE: Confirmation is handled on the client-side (JS).
+        # We proceed directly here because the user has already clicked "Yes" in the UI.
         
         settings = get_settings()
         
@@ -415,10 +404,10 @@ def reset_integration():
         settings.owner_azure_object_id = ""
         settings.save(ignore_permissions=True)
         
-        # Clear Azure Object IDs from users (optional)
+        # Optional: Clear Azure Object IDs from users 
         # frappe.db.sql("UPDATE `tabUser` SET azure_object_id = ''")
         
-        # Clear conversation data (optional - commented out for safety)
+        # Optional: Clear conversation data 
         # frappe.db.sql("DELETE FROM `tabTeams Conversation`")
         # frappe.db.sql("DELETE FROM `tabTeams Chat Message`")
         
@@ -444,5 +433,6 @@ def get_oauth_scopes():
         "Chat.Create",
         "Chat.ReadBasic",
         "ChannelMessage.Send",
-        "Chat.ReadWrite.All"
+        "Chat.ReadWrite.All",
+        "Calendars.ReadWrite"
     ]
