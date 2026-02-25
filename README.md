@@ -2,7 +2,9 @@
 
 Seamlessly connect ERPNext with Microsoft Teams to enhance collaboration, streamline communication, and bring your business operations closer to your team chats.
 
-## 🚀 Features
+---
+
+## Features
 
 ### **Sync ERPNext Data with Teams**
 - Connect supported ERPNext doctypes (Events, Projects, etc.) directly to Teams
@@ -28,48 +30,64 @@ Seamlessly connect ERPNext with Microsoft Teams to enhance collaboration, stream
 - Performance-optimized message storage
 
 ### **Microsoft Teams Meeting Creation**
-- Create Teams meetings directly from ERPNext records
+- Create Teams meetings directly from ERPNext records (Events & Projects)
 - Automatically share meeting links with all relevant participants
-- Support for recurring meetings and meeting updates
-- Meeting rescheduling and participant management
+- Reschedule meetings by updating document dates
+- Add/remove participants from existing meetings
+- "Join Teams Meeting" button auto-appears on the form when a meeting exists
+- Support for meeting deletion and attendee management
+
+### **Calendar Event Creation & Blocking**
+- Creating a Teams meeting from an Event automatically blocks the time slot on Microsoft Outlook/Teams calendar
+- Meeting start/end times are derived directly from the ERPNext Event's `starts_on` and `ends_on` fields
+- Project meetings default to business hours (9:00 AM–5:30 PM) when only dates are provided
+- Graceful fallback: if no time is set on the event, a sensible default is applied rather than failing
+- Meeting times are converted to UTC before being sent to Microsoft Graph, ensuring correct timezone handling across regions
+- Attendees are resolved from event participants via their Azure AD Object IDs
 
 ### **Advanced Authentication & Security**
 - OAuth 2.0 integration with Microsoft Graph API
-- Secure token storage with automatic refresh handling
-- Comprehensive error handling and retry mechanisms
-- Rate limiting and API quota management
+- Secure token storage with automatic refresh handling (5-minute safety buffer before expiry)
+- Comprehensive error handling and retry mechanisms with token refresh on 401 responses
+- Tenant ID and redirect URI format validation in the settings form
 
 ### **Monitoring & Analytics**
 - Clear error messages for authentication, permission, or API failures
-- Comprehensive server-side logging for debugging
-- Usage statistics and activity monitoring
-- Data export capabilities for compliance
+- Comprehensive server-side logging with safe title truncation (Frappe 140-char limit handled)
+- Usage statistics dashboard: total messages, unique chats, user engagement
+- Recent activity breakdown (last 7 days)
+- Data export capabilities (JSON & CSV) for compliance
+- Bulk message cleanup with configurable retention period
 
-## 📋 Prerequisites
+---
+
+## Prerequisites
 
 - **ERPNext v14+** (tested with v14 and v15)
 - **Microsoft 365 Business/Enterprise subscription** with Teams access
 - **Azure Active Directory** tenant with app registration permissions
 - **System Manager** role in ERPNext for configuration
+- **`pytz`** Python package (for timezone-aware meeting time conversion)
 
-## 📦 Installation
+---
+
+## Installation
 
 ### Step 1: Install the App
 
 ```bash
-# Navigate to your Frappe bench directory
 cd $PATH_TO_YOUR_BENCH
-
-# Get the app from repository
 bench get-app https://github.com/your-repo/erpnext_teams_integration --branch master
-
-# Install on your site
 bench --site your-site-name install-app erpnext_teams_integration
-
-# Restart your site
 bench --site your-site-name migrate
 bench restart
 ```
+
+After install, the app automatically:
+- Creates the `azure_object_id` custom field on the `User` doctype
+- Creates the `Teams Settings` singleton with a pre-populated redirect URI
+- Sets up default permissions for all Teams doctypes
+- Creates database indexes for optimal query performance
 
 ### Step 2: Azure App Registration
 
@@ -79,402 +97,342 @@ bench restart
    - Supported account types: "Accounts in this organizational directory only"
    - Redirect URI: `https://your-erpnext-site.com/api/method/erpnext_teams_integration.api.auth.callback`
 
-3. **Configure API Permissions:**
-   - Microsoft Graph API permissions:
-     - `User.Read` (Delegated)
-     - `User.ReadBasic.All` (Delegated)  
-     - `Chat.ReadWrite` (Delegated)
-     - `Chat.Create` (Delegated)
-     - `ChannelMessage.Send` (Delegated)
-     - `OnlineMeetings.ReadWrite` (Delegated)
-   - **Grant admin consent** for your organization
+3. **Configure API Permissions** (Microsoft Graph):
 
-4. **Create a client secret:**
-   - Go to "Certificates & secrets"
-   - Create a new client secret (save this value securely)
+   | Permission | Type |
+   |---|---|
+   | `User.Read` | Delegated |
+   | `User.ReadBasic.All` | Delegated |
+   | `Chat.ReadWrite` | Delegated |
+   | `Chat.Create` | Delegated |
+   | `ChannelMessage.Send` | Delegated |
+   | `OnlineMeetings.ReadWrite` | Delegated |
+   | `offline_access` | Delegated |
+   | `Calendar.ReadWrite` | Delegated |
 
-5. **Note down these values:**
+   **Grant admin consent** for your organization.
+
+4. **Create a client secret** under "Certificates & secrets" and save the value securely.
+
+5. **Note down:**
    - Application (client) ID
-   - Directory (tenant) ID  
+   - Directory (tenant) ID
    - Client secret value
 
 ### Step 3: ERPNext Configuration
 
-1. **Go to Teams Settings** in ERPNext
-2. **Fill in the Azure app details:**
-   - Client ID: Your Azure app's Application ID
-   - Client Secret: The secret value you created
-   - Tenant ID: Your Azure directory tenant ID
-   - Redirect URI: Should be auto-populated with your site URL
+1. Go to **Teams Settings** in ERPNext
+2. Fill in your Azure app credentials (Client ID, Client Secret, Tenant ID)
+3. Verify the Redirect URI is auto-populated correctly
+4. Click **"Authenticate with Teams"** and complete the OAuth flow
+5. Click **"Test Connection"** to verify chat and meetings access
+6. Click **"Sync Azure IDs"** to link Frappe users with their Microsoft accounts
 
-3. **Enable Doctypes:**
-   - Add the doctypes you want to integrate (Event, Project, etc.)
-   - Save the settings
+---
 
-4. **Authenticate with Teams:**
-   - Click "Authenticate with Teams"
-   - Complete the OAuth flow in the popup window
-   - Verify authentication with "Test Connection"
+## Configuration
 
-5. **Sync User Data:**
-   - Click "Sync Azure IDs" to link Frappe users with Microsoft accounts
-   - This enables automatic participant detection
+### Teams Settings Fields
 
-## 🛠️ Configuration
+| Field | Description |
+|---|---|
+| Client ID | Azure app's Application (client) ID |
+| Client Secret | Azure app client secret value |
+| Tenant ID | Azure Directory (tenant) ID — must be a valid GUID |
+| Redirect URI | Auto-populated; must match exactly what is set in Azure |
+| Access Token | Managed automatically; do not edit manually |
+| Refresh Token | Managed automatically; do not edit manually |
+| Token Expiry | Managed automatically; tokens refresh 5 minutes before expiry |
+| Azure Owner Email ID | Email of the authenticated Microsoft account |
+| Owner Azure Object ID | Read-only; auto-populated on authentication |
+| Enabled Doctypes | Child table of doctypes to enable for Teams integration |
 
 ### Supported Doctypes
 
-Currently supported doctypes with their participant fields:
-
-| Doctype | Participants Field | Email Field | Subject Field |
-|---------|-------------------|-------------|---------------|
-| Event | event_participants | email | subject |
-| Project | users | email | project_name |
+| Doctype | Participants Field | Email Field | Subject Field | Start Field | End Field |
+|---|---|---|---|---|---|
+| Event | `event_participants` | `email` | `subject` | `starts_on` | `ends_on` |
+| Project | `users` | `email` | `project_name` | `expected_start_date` | `expected_end_date` |
 
 ### Adding Custom Doctypes
 
-To add support for additional doctypes, modify the `SUPPORTED_DOCTYPES` configuration in:
-- `erpnext_teams_integration/api/chat.py`
-- `erpnext_teams_integration/api/meetings.py`
+Modify `SUPPORTED_DOCTYPES` in both `api/chat.py` and `api/meetings.py`:
 
-Example:
 ```python
 SUPPORTED_DOCTYPES = {
     "Task": {
-        "participants_field": "assigned_users", 
+        "participants_field": "assigned_users",
         "email_field": "user",
-        "subject_field": "subject"
+        "subject_field": "subject",
+        "start_field": "exp_start_date",
+        "end_field": "exp_end_date"
     }
 }
 ```
 
-### Required Custom Fields
+Then add the corresponding frontend button group in a new `public/js/task_teams_chat.js` and register it in `hooks.py`:
 
-The app automatically creates these custom fields:
+```python
+doctype_js = {
+    "Project": "public/js/project_teams_chat.js",
+    "Event": "public/js/event_teams_chat.js",
+    "Task": "public/js/task_teams_chat.js"
+}
+```
+
+### Custom Fields Added to Doctypes
 
 **Event & Project:**
-- `custom_teams_chat_id` - Stores the Teams chat ID
-- `custom_teams_meeting_url` - Stores the Teams meeting join URL
-- `custom_join_teams_meeting` - Button to open meeting
+
+| Field | Type | Description |
+|---|---|---|
+| `custom_teams_chat_id` | Data (Read Only) | Linked Teams group chat ID |
+| `custom_teams_meeting_url` | Small Text (Read Only) | Teams meeting join URL |
+| `custom_join_teams_meeting` | Button (conditional) | Opens meeting URL in new tab; visible only when meeting URL is set |
+| `custom_outlook_event_id` | Small Text (Read Only) | Outlook Event ID to identify the event |
 
 **User:**
-- `azure_object_id` - Microsoft Azure user ID for API calls
 
-## 🎯 Usage Guide
+| Field | Type | Description |
+|---|---|---|
+| `azure_object_id` | Data (Read Only) | Microsoft Azure AD Object ID |
 
-### Creating Team Chats
+---
 
-1. **From Event/Project form:**
-   - Click "Teams" dropdown → "Create Teams Chat"
-   - All participants with Microsoft accounts will be added
-   - Chat ID is automatically stored in the document
+## Usage Guide
 
-2. **Programmatically:**
-   ```python
-   frappe.call({
-       method: "erpnext_teams_integration.api.chat.create_group_chat_for_doc",
-       args: { docname: "EVT-001", doctype: "Event" }
-   })
-   ```
+### Teams Dropdown (available on Event & Project forms)
 
-### Sending Messages
+| Button | Action |
+|---|---|
+| Create Teams Chat | Creates a new group chat with all document participants |
+| Open Teams Chat | Shows local message history in a modal |
+| Send Teams Message | Prompts for a message and sends it to the linked chat |
+| Post to Channel | Posts a message to a specific Team/Channel by ID |
+| Create Teams Meeting | Creates an online meeting and saves the join URL on the document |
+| Sync Now | Fetches latest messages from the linked chat |
 
-1. **From ERPNext:**
-   - Use "Send Teams Message" button in document
-   - Messages are stored locally for history
+### Meeting Creation & Calendar Blocking
 
-2. **API Method:**
-   ```python
-   frappe.call({
-       method: "erpnext_teams_integration.api.chat.send_message_to_chat",
-       args: { 
-           chat_id: "chat_id_here", 
-           message: "Hello from ERPNext!",
-           docname: "EVT-001",
-           doctype: "Event"
-       }
-   })
-   ```
+When "Create Teams Meeting" is clicked on an Event:
 
-### Creating Meetings
+1. The app resolves all `event_participants` to their Azure Object IDs
+2. A meeting is created via Microsoft Graph with the event's `starts_on`/`ends_on` as the schedule
+3. The meeting is added to the organizer's Outlook/Teams calendar, blocking the time slot
+4. All attendees receive a calendar invite through Teams
+5. The `custom_teams_meeting_url` field is populated with the join URL
+6. The "Join Teams Meeting" button becomes visible on the form
 
-1. **From Document:**
-   - Click "Create Teams Meeting" in Teams dropdown
-   - Meeting is scheduled based on document dates
-   - Join URL is automatically saved
-
-2. **Meeting Management:**
-   - Add/remove participants by updating document participants
-   - Reschedule by updating document dates and recreating meeting
-   - Use "Join Teams Meeting" button to open meeting
+**Time handling logic:**
+- If `starts_on`/`ends_on` have no time component (midnight), a sensible default is applied: 9:00 AM start for Projects, and current time for Events
+- All times are converted from `Asia/Kolkata` (IST) to UTC before being sent to the API
+- If end time is missing or earlier than start, it defaults to `start + 1 hour`
 
 ### Syncing Conversations
 
-1. **Manual Sync:**
-   - Use "Sync Now" button in Teams dropdown
-   - Or "Sync All Conversations" in Teams Settings
+**Manual (per document):** Teams → Sync Now  
+**Manual (all chats):** Teams Settings → Sync Actions → Sync All Conversations  
+**Automatic (scheduled):** Configured in `hooks.py` — runs hourly by default:
 
-2. **Automatic Sync:**
-   - Set up a scheduled job in hooks.py:
-   ```python
-   scheduler_events = {
-       "hourly": [
-           "erpnext_teams_integration.api.chat.sync_all_conversations"
-       ]
-   }
-   ```
+```python
+scheduler_events = {
+    "hourly": [
+        "erpnext_teams_integration.api.chat.sync_all_conversations"
+    ]
+}
+```
+
+---
 
 ## 🔧 API Reference
 
-### Authentication Methods
+### Authentication (`api/auth.py`)
 
-```python
-# Get authentication status
-frappe.call("erpnext_teams_integration.api.auth.get_authentication_status")
+| Method | Description |
+|---|---|
+| `erpnext_teams_integration.api.auth.callback` | OAuth callback handler (guest-accessible) |
+| `erpnext_teams_integration.api.auth.get_authentication_status` | Check current token validity |
+| `erpnext_teams_integration.api.auth.revoke_authentication` | Clear all tokens |
 
-# Revoke authentication
-frappe.call("erpnext_teams_integration.api.auth.revoke_authentication")
+### Chat (`api/chat.py`)
+
+| Method | Key Args | Description |
+|---|---|---|
+| `create_group_chat_for_doc` | `docname`, `doctype` | Create or update group chat |
+| `send_message_to_chat` | `chat_id`, `message`, `docname`, `doctype` | Send a message |
+| `get_local_chat_messages` | `chat_id`, `limit` | Fetch stored messages (max 500) |
+| `fetch_and_store_chat_messages` | `chat_id`, `top` | Pull from Graph API and store locally |
+| `post_message_to_channel` | `team_id`, `channel_id`, `message` | Post to a Teams channel |
+| `sync_all_conversations` | `chat_id` (optional) | Sync one or all conversations |
+| `get_chat_statistics` | `chat_id` (optional) | Message counts and stats |
+
+### Meetings (`api/meetings.py`)
+
+| Method | Key Args | Description |
+|---|---|---|
+| `create_meeting` | `docname`, `doctype` | Create meeting or update attendees |
+| `get_meeting_details` | `docname`, `doctype` | Fetch meeting info from Graph |
+| `delete_meeting` | `docname`, `doctype` | Delete meeting and clear URL |
+| `reschedule_meeting` | `docname`, `doctype`, `new_start_time`, `new_end_time` | Update meeting schedule |
+| `get_meeting_attendees` | `docname`, `doctype` | List current attendees |
+| `validate_meeting_time` | `start_time`, `end_time`, `timezone_str` | Validate time range |
+
+### Settings (`api/settings.py`)
+
+| Method | Description |
+|---|---|
+| `bulk_sync_azure_ids` | Pull all Azure AD users and update local `azure_object_id` |
+| `test_teams_connection` | Verify API access and permission scopes |
+| `get_teams_statistics` | Usage stats + recent activity + top chats |
+| `cleanup_old_messages` | Delete messages older than N days |
+| `export_chat_history` | Export messages as JSON or CSV |
+| `validate_configuration` | Check all required settings and token validity |
+| `reset_integration` | Clear all tokens and auth data |
+
+### Helpers (`api/helpers.py`)
+
+| Method | Description |
+|---|---|
+| `get_access_token` | Returns valid token, auto-refreshes if near expiry |
+| `refresh_access_token` | Manually trigger a token refresh |
+| `get_azure_user_id_by_email` | Resolve email → Azure Object ID (with local caching) |
+| `get_login_url` | Generate the Microsoft OAuth authorization URL |
+| `validate_settings` | Validate GUID format, redirect URI, required fields |
+| `test_api_connection` | Quick `/me` call to verify token |
+
+---
+
+## File Structure
+
+```
+erpnext_teams_integration/
+├── hooks.py                              # App hooks, scheduled jobs, doctype JS
+├── install.py                            # Post-install setup & pre-uninstall cleanup
+├── modules.txt
+├── api/
+│   ├── auth.py                           # OAuth callback & token management
+│   ├── chat.py                           # Group chat, messaging, sync
+│   ├── meetings.py                       # Meeting CRUD, scheduling, attendees
+│   ├── helpers.py                        # Token utils, Azure ID resolution
+│   └── settings.py                       # Bulk sync, stats, export, cleanup
+├── erpnext_teams_integration/
+│   ├── custom/
+│   │   ├── event.json                    # Custom fields for Event doctype
+│   │   └── project.json                  # Custom fields for Project doctype
+│   └── doctype/
+│       ├── teams_settings/               # Singleton settings DocType
+│       ├── teams_conversation/           # Tracks linked chat per document
+│       ├── teams_chat_message/           # Stores all inbound/outbound messages
+│       └── teams_enabled_doctype/        # Child table for enabled doctypes
+└── public/
+    └── js/
+        ├── event_teams_chat.js           # Teams dropdown for Event form
+        └── project_teams_chat.js         # Teams dropdown for Project form
 ```
 
-### Chat Methods
+---
 
-```python
-# Create group chat
-frappe.call("erpnext_teams_integration.api.chat.create_group_chat_for_doc", {
-    "docname": "DOC-001",
-    "doctype": "Event"
-})
+## Security & Permissions
 
-# Send message
-frappe.call("erpnext_teams_integration.api.chat.send_message_to_chat", {
-    "chat_id": "19:xxx@thread.v2",
-    "message": "Hello World",
-    "docname": "DOC-001",
-    "doctype": "Event"
-})
+- Access tokens and refresh tokens are stored in the `Teams Settings` singleton — accessible only to System Manager
+- Tokens are never logged or included in error messages
+- Automatic refresh prevents stale token issues; if the refresh token itself is invalid, all tokens are cleared and re-auth is required
+- `sanitize_html` is applied to all inbound message bodies before storage
+- Outbound messages are `html.escape()`d before being sent to the Graph API
+- All API routes are `@frappe.whitelist()` — enforcing standard Frappe session authentication
 
-# Get chat messages
-frappe.call("erpnext_teams_integration.api.chat.get_local_chat_messages", {
-    "chat_id": "19:xxx@thread.v2",
-    "limit": 50
-})
+---
 
-# Sync conversations
-frappe.call("erpnext_teams_integration.api.chat.sync_all_conversations", {
-    "chat_id": "19:xxx@thread.v2"  # Optional: sync specific chat
-})
-```
+## Troubleshooting
 
-### Meeting Methods
+**Authentication fails:**
+- Ensure Azure app permissions have admin consent granted
+- Check that the Redirect URI in Azure matches exactly (including protocol)
+- Verify the client secret hasn't expired in Azure Portal
 
-```python
-# Create meeting
-frappe.call("erpnext_teams_integration.api.meetings.create_meeting", {
-    "docname": "EVT-001",
-    "doctype": "Event"
-})
+**Meeting times are wrong:**
+- Check that `starts_on`/`ends_on` are set on the Event with a time, not just a date
+- The app assumes `Asia/Kolkata` (IST) as the local timezone — if your server is in a different timezone, update `timezone_str` in `to_utc_isoformat()`
 
-# Get meeting details
-frappe.call("erpnext_teams_integration.api.meetings.get_meeting_details", {
-    "docname": "EVT-001",
-    "doctype": "Event"
-})
+**Users not found / added to chat:**
+- Run "Sync Azure IDs" from Teams Settings to populate `azure_object_id` on all users
+- Verify user emails match exactly between ERPNext and Microsoft 365
+- Confirm users have active Teams licenses
 
-# Delete meeting
-frappe.call("erpnext_teams_integration.api.meetings.delete_meeting", {
-    "docname": "EVT-001", 
-    "doctype": "Event"
-})
-```
+**API rate limits:**
+- Microsoft Graph throttles heavily under bulk operations — stagger sync jobs
+- The hourly scheduler is conservative by design; increase frequency cautiously
 
-## 🛡️ Security & Permissions
+### Debug Logging
 
-### Token Security
-- Access tokens are stored securely in the database
-- Automatic token refresh prevents expiration issues
-- Tokens are never logged or exposed in error messages
-
-### User Permissions
-- Only users with appropriate ERPNext permissions can access Teams features
-- Azure AD controls which users can join chats and meetings
-- All API calls are made with delegated permissions
-
-### Data Privacy
-- Chat messages are stored locally for performance and offline access
-- No sensitive data is transmitted unnecessarily
-- Supports data cleanup and export for compliance
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-**Authentication Fails:**
-- Verify Azure app permissions are granted admin consent
-- Check redirect URI matches exactly (including https)
-- Ensure client secret hasn't expired
-
-**Users Not Found:**
-- Run "Sync Azure IDs" to link Frappe users with Microsoft accounts
-- Verify user emails match between systems
-- Check user has Teams license in Microsoft 365
-
-**API Rate Limits:**
-- Microsoft Graph API has throttling limits
-- Implement delays between bulk operations
-- Monitor usage in Teams Settings statistics
-
-**Chat Creation Fails:**
-- Ensure all participants have Teams access
-- Verify OAuth scopes include chat permissions
-- Check error logs for specific API errors
-
-### Debug Mode
-
-Enable debug logging by adding to your site config:
-
-```python
-# In sites/[site]/site_config.json
+```json
+// sites/[site]/site_config.json
 {
     "developer_mode": 1,
     "log_level": "DEBUG"
 }
 ```
 
-### Log Files
-
-Check these log files for debugging:
-- `logs/web.log` - General application logs
-- `logs/worker.log` - Background job logs  
-- Error Log doctype in ERPNext - Teams-specific errors
-
-### Getting Help
-
-1. **Check Error Logs** in ERPNext first
-2. **Verify Configuration** using "Validate Configuration" button
-3. **Test Connection** to confirm API access
-4. **Review Microsoft Graph API documentation** for permission issues
-
-## 🚀 Performance Optimization
-
-### Database Optimization
-- Indexes are automatically created for faster queries
-- Regular cleanup of old messages recommended
-- Consider archiving old conversation data
-
-### API Optimization
-- Implement caching for frequently accessed data
-- Use batch operations where possible
-- Monitor rate limits and implement backoff
-
-### Best Practices
-- Limit message history sync to recent data
-- Use specific chat sync instead of bulk sync when possible
-- Regular maintenance of Azure AD user mappings
-
-## 🤝 Contributing
-
-We welcome contributions from developers of all skill levels!
-
-### Development Setup
-
-1. **Fork the repository** and clone locally
-2. **Set up development environment:**
-   ```bash
-   cd apps/erpnext_teams_integration
-   pip install -e .
-   pre-commit install
-   ```
-
-3. **Make changes** and test thoroughly
-4. **Run quality checks:**
-   ```bash
-   pre-commit run --all-files
-   ```
-
-### Code Quality Standards
-
-- **Python**: Follow PEP 8, use type hints
-- **JavaScript**: ES6+, consistent formatting with Prettier
-- **Documentation**: Update README and docstrings
-- **Testing**: Add unit tests for new features
-
-### Submitting Changes
-
-1. **Create feature branch:** `git checkout -b feature/amazing-feature`
-2. **Commit changes:** `git commit -m "Add amazing feature"`
-3. **Push to branch:** `git push origin feature/amazing-feature`
-4. **Open Pull Request** with detailed description
-
-## 🧪 Testing
-
-### Automated Testing
-
-```bash
-# Run all tests
-bench --site test_site run-tests --app erpnext_teams_integration
-
-# Run specific test file
-bench --site test_site run-tests --app erpnext_teams_integration --module path.to.test
-```
-
-### Manual Testing Checklist
-
-- [ ] Authentication flow works end-to-end
-- [ ] Chat creation with various participant combinations
-- [ ] Message sending and receiving
-- [ ] Meeting creation and management
-- [ ] Error handling for network issues
-- [ ] Token refresh on expiration
-
-## 📊 Monitoring & Analytics
-
-### Usage Statistics
-Access comprehensive statistics in Teams Settings:
-- Total messages sent/received
-- Active conversations count
-- User engagement metrics
-- API usage patterns
-
-### Health Monitoring
-- Token expiration alerts
-- Failed API call tracking
-- Performance metrics
-- Error rate monitoring
-
-## 🔄 Maintenance
-
-### Regular Tasks
-1. **Monitor token expiration** - tokens refresh automatically but watch for issues
-2. **Clean up old messages** - use cleanup function to manage database size
-3. **Review error logs** - identify patterns and optimize accordingly
-4. **Update user mappings** - sync Azure IDs when users are added/changed
-
-### Version Updates
-1. **Backup data** before updating
-2. **Test in staging** environment first
-3. **Review breaking changes** in release notes
-4. **Update API permissions** if new scopes are required
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](license.txt) file for details.
-
-## 💬 Support & Community
-
-- **Documentation**: This README and inline code documentation
-- **Issues**: Use GitHub Issues for bug reports and feature requests
-- **Discussions**: GitHub Discussions for questions and community support
-- **Microsoft Graph**: [Official Microsoft Graph documentation](https://docs.microsoft.com/en-us/graph/)
-
-## 🙏 Acknowledgments
-
-- **Frappe Framework** team for the excellent foundation
-- **Microsoft Graph API** for comprehensive Teams integration
-- **ERPNext Community** for feedback and contributions
-- **Open Source Contributors** who make this project better
+Check: `logs/web.log`, `logs/worker.log`, and the **Error Log** DocType in ERPNext.
 
 ---
 
-**Made with ❤️ for the ERPNext community**
+## Performance Notes
 
-*Let's build something awesome together! ✨*
+- Database indexes are auto-created on install for `chat_id`, `message_id`, `direction`, and `azure_object_id`
+- `message_id` has a unique index — duplicate messages are silently skipped
+- `get_local_chat_messages` caps results at 500; use `limit` parameter to paginate
+- Azure Object IDs are cached in `User.azure_object_id` to avoid redundant Graph API calls
+- Use `cleanup_old_messages(days=30)` periodically to prevent unbounded table growth
+
+---
+
+## Testing
+
+```bash
+# Run all app tests
+bench --site test_site run-tests --app erpnext_teams_integration
+
+# Run specific module
+bench --site test_site run-tests --app erpnext_teams_integration --module erpnext_teams_integration.api.chat
+```
+
+**Manual checklist:**
+- [ ] Full OAuth flow (authenticate → test connection → revoke → re-authenticate)
+- [ ] Chat creation with 1, 2, and 5+ participants
+- [ ] Adding a participant to an existing chat
+- [ ] Message send/receive and local storage
+- [ ] Meeting creation from Event (with time set)
+- [ ] Meeting creation from Event (without time — fallback behavior)
+- [ ] Calendar block visible in Outlook/Teams after meeting creation
+- [ ] Meeting reschedule reflects updated time in Teams calendar
+- [ ] Meeting deletion clears URL from document
+- [ ] Token auto-refresh when near expiry
+- [ ] `sync_all_conversations` scheduler job
+
+---
+
+## Maintenance
+
+1. **Monitor token expiry** — the refresh is automatic, but watch for expired client secrets in Azure Portal (they have a max lifetime of 24 months)
+2. **Cleanup messages** — use the "Cleanup Old Messages" button in Teams Settings periodically
+3. **Re-sync Azure IDs** — run "Sync Azure IDs" whenever new users are onboarded or emails change
+4. **Check error logs weekly** — especially after Microsoft Graph API changes
+
+---
+
+## Contributing
+
+1. Fork and clone the repo
+2. `pip install -e .` in the app directory
+3. Follow PEP 8 for Python; ES6+ for JavaScript
+4. Add docstrings to new API methods
+5. Open a PR with a clear description of what changed and why
+
+---
+
+## License
+
+MIT — see [license.txt](license.txt) for details.
+
+---

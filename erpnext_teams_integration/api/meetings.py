@@ -97,7 +97,6 @@ def _check_api_response(res, docname=None):
         return {"error": "auth_required", "login_url": get_login_url(docname) if docname else None}
     
     if res.status_code == 403:
-        # Explicit instruction for the missing permission
         msg = (
             "<b>Permission Denied (403)</b><br>"
             "Your Microsoft Token lacks permission to access Calendars.<br>"
@@ -107,30 +106,12 @@ def _check_api_response(res, docname=None):
         frappe.throw(msg)
     return None
 
-def _get_email_for_azure_id(azure_id):
-    """Quick lookup to get email from User doctype based on Azure ID"""
-    return frappe.db.get_value("User", {"azure_object_id": azure_id}, "email") or ""
+# ---------------------------------------------------------------------------
+# Attendee & Email Helpers (Updated for External Users)
+# ---------------------------------------------------------------------------
 
-def _build_event_attendees(azure_ids):
-    """Build attendees list for Calendar Events (Requires Email)."""
-    attendees = []
-    for azure_id in azure_ids:
-        email = _get_email_for_azure_id(azure_id)
-        if email:
-            attendees.append({
-                "emailAddress": {"address": email},
-                "type": "required"
-            })
-    return attendees
-
-def _build_attendees_from_participants_list(participants_list):
-    """Build attendees list for OnlineMeetings (Uses Object ID)."""
-    attendees = []
-    for azure_id in participants_list:
-        attendees.append({"identity": {"user": {"id": azure_id}}})
-    return attendees
-
-def _collect_participants_azure_ids(doc):
+def _collect_participant_emails(doc):
+    """Collects emails (internal and external) instead of Azure IDs."""
     doctype = doc.doctype
     if doctype not in SUPPORTED_DOCTYPES:
         frappe.throw(f"Doctype {doctype} is not supported for Teams meetings.")
@@ -139,22 +120,54 @@ def _collect_participants_azure_ids(doc):
     participants_field = cfg["participants_field"]
     email_field = cfg["email_field"]
 
-    azure_ids = set()
+    emails = set()
     rows = getattr(doc, participants_field, []) or []
 
     for row in rows:
-        azure = None
-        if getattr(row, "user", None):
-            azure = frappe.db.get_value("User", row.user, "azure_object_id")
-        if not azure:
-            email_val = getattr(row, email_field, None)
-            if email_val:
-                azure = frappe.db.get_value("User", email_val, "azure_object_id")
-                if not azure:
-                    azure = get_azure_user_id_by_email(email_val)
-        if azure:
-            azure_ids.add(azure)
-    return list(azure_ids)
+        email = None
+        
+        # 1. Try to get email from linked User (Internal)
+        user_link = getattr(row, "user", None)
+        if user_link:
+            email = frappe.db.get_value("User", user_link, "email")
+            
+        # 2. Fallback to direct email field (External/Guests/Contacts)
+        if not email:
+            email = getattr(row, email_field, None)
+            
+        if email:
+            # Force lowercase for consistency
+            emails.add(email.lower())
+            
+    return list(emails)
+
+def _build_event_attendees(emails):
+    """Build attendees list for Calendar Events using raw Emails."""
+    attendees = []
+    for email in emails:
+        if email:
+            attendees.append({
+                "emailAddress": {"address": email},
+                "type": "required"
+            })
+    return attendees
+
+def _build_attendees_from_participants_list(emails):
+    """Legacy helper for pure OnlineMeetings (Requires Azure IDs)."""
+    attendees = []
+    for email in emails:
+        # Since legacy onlineMeetings strictly needs Azure IDs, we look it up from the email
+        azure_id = frappe.db.get_value("User", {"email": email}, "azure_object_id")
+        if not azure_id:
+            try:
+                # Fallback to Graph API lookup if needed
+                azure_id = get_azure_user_id_by_email(email)
+            except Exception:
+                pass
+                
+        if azure_id:
+            attendees.append({"identity": {"user": {"id": azure_id}}})
+    return attendees
 
 def _build_default_times_for_doctype(doc, doctype: str):
     cfg = SUPPORTED_DOCTYPES.get(doctype) or {}
@@ -182,43 +195,6 @@ def _resolve_subject(doc, doctype: str, docname: str) -> str:
     subject_field = cfg.get("subject_field")
     subject = (getattr(doc, subject_field, None) or "").strip() if subject_field else ""
     return subject or f"{doctype} Meeting: {docname}"
-
-# ---------------------------------------------------------------------------
-# ID Extraction Helpers
-# ---------------------------------------------------------------------------
-# @frappe.whitelist()
-# def _extract_event_id_from_join_url(join_url: str, token: str) -> str | None:
-#     """Finds a Calendar Event ID based on the Teams Join URL."""
-#     try:
-#         if not join_url: return None
-        
-#         headers = _headers_with_auth(token, json_content=False)
-        
-#         # NOTE: /me/events only returns the default page size (usually 10).
-#         # If the event is older/newer, you might miss it.
-#         # Consider using the 'calendarView' (Time Window) strategy for better accuracy.
-#         search_url = f"{GRAPH_API}/me/events?$top=50" # Fetch up to 50 to be safe
-        
-#         res = requests.get(search_url, headers=headers, timeout=30)
-        
-#         if res.status_code == 200:
-#             events = res.json().get("value", [])
-            
-#             #LOOP AND MATCH
-#             for event in events:
-#                 meeting_info = event.get("onlineMeeting") or {}
-#                 # Check if the Join URL matches exactly
-#                 if meeting_info.get("joinUrl") == join_url:
-#                     frappe.msgprint(f"Found Event: {event.get('subject')}")
-#                     return event.get("id")
-            
-#             frappe.msgprint("URL not found in the recent events list.")
-#             return None
-            
-#         return None
-#     except Exception as e:
-#         frappe.log_error(f"Error: {e}")
-#         return None
 
 @frappe.whitelist()
 def _extract_meeting_id_from_join_url(join_url: str, token: str) -> str | None:
@@ -252,17 +228,19 @@ def create_meeting(docname, doctype):
             return {"error": "auth_required", "login_url": get_login_url(docname)}
 
         doc = frappe.get_doc(doctype, docname)
-        azure_ids = _collect_participants_azure_ids(doc)
+        
+        # Grab emails instead of Azure IDs
+        participant_emails = _collect_participant_emails(doc)
         
         existing_meeting_url = doc.get("custom_teams_meeting_url")
         if existing_meeting_url:
             existing_event_id = doc.get("custom_outlook_event_id")
             if existing_event_id:
-                # If we have an event ID stored, we can directly update it without searching
-                return _update_event_attendees(existing_event_id, azure_ids, token)
+                return _update_event_attendees(existing_event_id, participant_emails, token)
             else:
-                return _update_existing_meeting(doc, azure_ids, existing_meeting_url, token)
-        return _create_new_meeting(doc, doctype, docname, azure_ids, token)
+                return _update_existing_meeting(doc, participant_emails, existing_meeting_url, token)
+                
+        return _create_new_meeting(doc, doctype, docname, participant_emails, token)
 
     except frappe.ValidationError:
         raise
@@ -270,7 +248,7 @@ def create_meeting(docname, doctype):
         safe_log_error(f"Create error: {e}", "Teams Meeting Create Error")
         frappe.throw("Failed to create Teams meeting.")
 
-def _create_new_meeting(doc, doctype, docname, azure_ids, token):
+def _create_new_meeting(doc, doctype, docname, participant_emails, token):
     """Create a new Outlook Calendar Event with Teams meeting attached."""
     try:
         subject = _resolve_subject(doc, doctype, docname)
@@ -282,7 +260,7 @@ def _create_new_meeting(doc, doctype, docname, azure_ids, token):
             "end": {"dateTime": to_utc_isoformat(end_dt), "timeZone": "UTC"},
             "isOnlineMeeting": True,
             "onlineMeetingProvider": "teamsForBusiness",
-            "attendees": _build_event_attendees(azure_ids)
+            "attendees": _build_event_attendees(participant_emails)
         }
 
         res = requests.post(
@@ -292,7 +270,6 @@ def _create_new_meeting(doc, doctype, docname, azure_ids, token):
             timeout=30,
         )
         
-        # Check permissions explicitly
         check = _check_api_response(res, docname)
         if check: return check
 
@@ -306,7 +283,6 @@ def _create_new_meeting(doc, doctype, docname, azure_ids, token):
         if not join_url:
             frappe.throw("Event created but no Teams link returned.")
 
-        # Optional: Save event ID if field exists
         if frappe.db.has_column(doctype, 'custom_outlook_event_id'):
             doc.db_set("custom_outlook_event_id", data.get("id"))
 
@@ -324,12 +300,12 @@ def _create_new_meeting(doc, doctype, docname, azure_ids, token):
         safe_log_error(f"Error creating event: {e}", "Event Creation Error")
         frappe.throw(str(e))
 
-def _update_existing_meeting(doc, azure_ids, meeting_url, token):
+def _update_existing_meeting(doc, participant_emails, meeting_url, token):
     """Update attendees. Tries Event first, then OnlineMeeting."""
     try:
         meeting_id = _extract_meeting_id_from_join_url(meeting_url, token)
         if meeting_id:
-            return _update_onlinemeeting_attendees(meeting_id, azure_ids, token)
+            return _update_onlinemeeting_attendees(meeting_id, participant_emails, token)
 
         return {"error": "not_found", "message": "Could not find meeting on Teams/Outlook."}
         
@@ -337,7 +313,7 @@ def _update_existing_meeting(doc, azure_ids, meeting_url, token):
         safe_log_error(f"Update error: {e}", "Meeting Update Error")
         frappe.throw("Failed to update meeting.")
 
-def _update_event_attendees(event_id, azure_ids, token):
+def _update_event_attendees(event_id, participant_emails, token):
     """Fetch existing event, merge attendees, and patch."""
     headers = _headers_with_auth(token)
     get_res = requests.get(f"{GRAPH_API}/me/events/{event_id}", headers=headers)
@@ -356,8 +332,7 @@ def _update_event_attendees(event_id, azure_ids, token):
     new_attendees.extend(current_data.get('attendees', []))
     
     # Add new
-    for uid in azure_ids:
-        email = _get_email_for_azure_id(uid)
+    for email in participant_emails:
         if email and email.lower() not in existing_emails:
             new_attendees.append({
                 "emailAddress": {"address": email},
@@ -380,10 +355,10 @@ def _update_event_attendees(event_id, azure_ids, token):
         return {"success": True, "message": "Outlook Event attendees updated."}
     frappe.throw("Failed to update Outlook Event.")
 
-def _update_onlinemeeting_attendees(meeting_id, azure_ids, token):
-    """Legacy update for pure online meetings."""
+def _update_onlinemeeting_attendees(meeting_id, participant_emails, token):
+    """Legacy update for pure online meetings. Maps emails back to Azure IDs."""
     headers = _headers_with_auth(token)
-    attendees = _build_attendees_from_participants_list(azure_ids)
+    attendees = _build_attendees_from_participants_list(participant_emails)
     patch_res = requests.patch(
         f"{GRAPH_API}/me/onlineMeetings/{meeting_id}",
         headers=headers,

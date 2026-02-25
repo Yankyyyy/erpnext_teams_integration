@@ -212,7 +212,7 @@ def create_new_chat(docname, doctype, target_azure_ids, token):
 
 @frappe.whitelist()
 def send_message_to_chat(chat_id, message, docname=None, doctype=None):
-    """Send message to Teams chat with proper error handling"""
+    """Send message to Teams chat with proper error handling and sender context"""
     if not chat_id or not message:
         frappe.throw("Chat ID and message are required")
     
@@ -221,8 +221,20 @@ def send_message_to_chat(chat_id, message, docname=None, doctype=None):
         if not token:
             return {'error': 'auth_required', 'message': 'Authentication required'}
         
-        # Sanitize message content
+        # 1. Grab the full name of the human actually clicking the button
+        actual_sender_name = frappe.utils.get_fullname(frappe.session.user)
+        
+        # 2. Sanitize their message content
         sanitized_message = html.escape(str(message))
+        
+        # 3. Format it so Teams renders it nicely. 
+        # Using a blockquote or bold text makes it look like an official system message.
+        final_html_content = f"""
+        <div style="color: #616161; font-size: 12px; margin-bottom: 4px;">
+            <strong>{actual_sender_name}</strong> via ERPNext:
+        </div>
+        <div>{sanitized_message}</div>
+        """
         
         headers = {
             'Authorization': f'Bearer {token}',
@@ -232,7 +244,7 @@ def send_message_to_chat(chat_id, message, docname=None, doctype=None):
         payload = {
             'body': {
                 'contentType': 'html',
-                'content': sanitized_message
+                'content': final_html_content # Swap in our newly formatted string
             }
         }
         

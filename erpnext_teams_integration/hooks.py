@@ -176,8 +176,11 @@ after_install = "erpnext_teams_integration.install.after_install"
 scheduler_events = {
        "hourly": [
            "erpnext_teams_integration.api.chat.sync_all_conversations"
-       ]
-   }
+       ],
+       "daily": [
+            "erpnext_teams_integration.api.auth.renew_graph_subscriptions"
+    ]
+}
 
 # Testing
 # -------

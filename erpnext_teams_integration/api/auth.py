@@ -1,8 +1,10 @@
 import frappe
 import requests
-from datetime import timedelta
+from werkzeug.wrappers import Response
+from datetime import datetime, timedelta
 from frappe.utils import now_datetime, cstr
-from .helpers import get_settings
+from .helpers import get_settings, get_access_token
+from werkzeug.exceptions import HTTPException
 import json
 import hashlib
 
@@ -158,3 +160,214 @@ def revoke_authentication():
     except Exception as e:
         frappe.log_error(f"Failed to revoke authentication: {str(e)}", "Teams Auth Revoke Error")
         frappe.throw("Failed to revoke authentication")
+
+#Webhook and Subscription Management
+GRAPH_API = "https://graph.microsoft.com/v1.0"
+
+class GraphValidationResponse(HTTPException):
+    def __init__(self, token):
+        super().__init__()
+        self.response = Response(token, status=200, mimetype='text/plain')
+
+class GraphAcceptedResponse(HTTPException):
+    def __init__(self):
+        super().__init__()
+        self.response = Response("Accepted", status=202, mimetype='text/plain')
+
+# ---------------------------------------------------------------------------
+# 🎧 THE WEBHOOK LISTENER
+# ---------------------------------------------------------------------------
+@frappe.whitelist(allow_guest=True)
+def handle_graph_webhook(**kwargs):
+    """
+    The main listener for Microsoft Graph API Subscriptions.
+    Must be a public endpoint (allow_guest=True) and accept **kwargs.
+    """
+    _ = frappe.request.get_data()
+
+    # Grab token safely from the URL query parameters
+    token = frappe.request.args.get('validationToken') or frappe.form_dict.get('validationToken')
+    
+    if token:
+        raise GraphValidationResponse(token)
+
+    # --- Handling the Actual RSVPs Below ---
+    try:
+        # Prevent Frappe from blocking Microsoft's POST payload due to missing session cookies
+        frappe.local.flags.ignore_csrf = True
+        
+        payload = frappe.request.get_json()
+        
+        if payload and "value" in payload:
+            for notification in payload.get("value", []):
+                resource_url = notification.get("resource")
+                if resource_url:
+                    frappe.enqueue(
+                        "erpnext_teams_integration.api.auth.process_rsvp_change",
+                        resource_url=resource_url,
+                        queue="short"
+                    )
+    except Exception as e:
+        frappe.log_error(message=str(e), title="Webhook Payload Error")
+
+    # Acknowledge the RSVP to Microsoft using the exact same hijack trick
+    raise GraphAcceptedResponse()
+
+
+# ---------------------------------------------------------------------------
+# SUBSCRIPTION & SYNC LOGIC
+# ---------------------------------------------------------------------------
+@frappe.whitelist()
+def subscribe_to_calendar_events():
+    """Tells Microsoft Graph to send webhooks when meetings are updated (RSVPs)."""
+    token = get_access_token()
+    if not token:
+        frappe.throw("Authentication required.")
+
+    # REMINDER: Hardcoded for Ngrok testing. 
+    # Move this to frappe.db.get_single_value('Teams Settings', 'webhook_base_url') for production.
+    # ngrok_base = "https://ae39-115-241-89-123.ngrok-free.app"
+    notification_url = frappe.utils.get_url("/api/method/erpnext_teams_integration.api.auth.handle_graph_webhook")
+
+    # Calendar subscriptions expire in maximum 4230 minutes. We use 2 days.
+    expiration_time = datetime.utcnow() + timedelta(days=2)
+
+    payload = {
+        "changeType": "updated",
+        "notificationUrl": notification_url,
+        "resource": "/me/events", 
+        "expirationDateTime": expiration_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "clientState": "FrappeTeamsSyncV1"
+    }
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    res = requests.post(f"{GRAPH_API}/subscriptions", headers=headers, json=payload)
+
+    if res.status_code == 201:
+        data = res.json()
+        return {"success": True, "subscription_id": data.get("id")}
+    else:
+        # Safely named kwargs to avoid the 140-char title limit crash
+        frappe.log_error(message=res.text, title="Graph Webhook Error")
+        frappe.throw(f"Failed to subscribe: {res.status_code}")
+        
+
+def process_rsvp_change(resource_url):
+    """
+    Background job triggered by Graph API Webhook.
+    Fetches the latest event details and updates the Frappe Event Participants table.
+    """
+    try:
+        token = get_access_token()
+        if not token: 
+            return
+            
+        if not resource_url.startswith("https"):
+            url = f"{GRAPH_API}/{resource_url.lstrip('/')}"
+        else:
+            url = resource_url
+            
+        headers = {
+            "Authorization": f"Bearer {token}", 
+            "Content-Type": "application/json"
+        }
+            
+        res = requests.get(url, headers=headers, timeout=30)
+        
+        if res.status_code != 200:
+            frappe.log_error(message=res.text, title="RSVP Sync Error")
+            return
+            
+        event_data = res.json()
+        outlook_event_id = event_data.get("id")
+        attendees = event_data.get("attendees", [])
+        
+        if not outlook_event_id or not attendees:
+            return
+            
+        event_name = frappe.db.get_value("Event", {"custom_outlook_event_id": outlook_event_id}, "name")
+        if not event_name:
+            return 
+            
+        status_map = {
+            "accepted": "Yes",
+            "declined": "No",
+            "tentative": "Maybe" 
+        }
+        
+        attendee_responses = {}
+        for a in attendees:
+            email = a.get("emailAddress", {}).get("address", "").lower()
+            status = a.get("status", {}).get("response", "").lower()
+            
+            if email and status in status_map:
+                attendee_responses[email] = status_map[status]
+                
+        doc = frappe.get_doc("Event", event_name)
+        doc_updated = False
+        
+        for row in doc.event_participants:
+            row_email = (row.email or "").lower()
+            if row_email in attendee_responses:
+                new_status = attendee_responses[row_email]
+                if row.attending != new_status:
+                    row.attending = new_status
+                    doc_updated = True
+                    
+        if doc_updated:
+            doc.flags.ignore_validate = True 
+            doc.flags.ignore_permissions = True
+            doc.save()
+            frappe.db.commit()
+            
+    except Exception as e:
+        frappe.log_error(message=str(e), title="RSVP Processing Error")
+        
+
+def renew_graph_subscriptions():
+    """
+    Cron job to keep the Microsoft Graph Webhook alive.
+    Runs daily.
+    """
+    try:
+        frappe.msgprint("Renewing Microsoft Graph Subscriptions...")
+        token = get_access_token()
+        if not token: 
+            return
+            
+        settings = frappe.get_single("Teams Settings")
+        sub_id = settings.get("custom_webhook_subscription_id")
+        
+        headers = {
+            "Authorization": f"Bearer {token}", 
+            "Content-Type": "application/json"
+        }
+        
+        if sub_id:
+            expiration_time = datetime.utcnow() + timedelta(days=2)
+            payload = {
+                "expirationDateTime": expiration_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            }
+            
+            res = requests.patch(f"{GRAPH_API}/subscriptions/{sub_id}", headers=headers, json=payload)
+            
+            if res.status_code == 200:
+                return
+            else:
+                frappe.log_error(message=res.text, title="Webhook Renewal Warning")
+        
+        # Recreate if it failed or didn't exist
+        result = subscribe_to_calendar_events()
+        
+        if result and result.get("success"):
+            settings.db_set("custom_webhook_subscription_id", result.get("subscription_id"))
+            frappe.db.commit()
+            
+    except Exception as e:
+        error_details = str(e)
+        safe_title = f"Webhook Renewal Error: {error_details}"[:135]
+        frappe.log_error(message=frappe.get_traceback(), title=safe_title)
